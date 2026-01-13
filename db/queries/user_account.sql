@@ -24,4 +24,3 @@ UPDATE user_account
 SET password_hash = $2,
     password_changed_at = now()
 WHERE id = $1;
-
