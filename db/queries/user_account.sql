@@ -1,6 +1,7 @@
 -- name: CreateUser :one
 INSERT INTO user_account (email, password_hash, role)
-VALUES ($1, $2, $3) RETURNING *;
+VALUES ($1, $2, $3)
+RETURNING *;
 
 -- name: GetUserByEmail :one
 SELECT *
@@ -21,6 +22,6 @@ WHERE id = $1;
 
 -- name: UpdatePassword :exec
 UPDATE user_account
-SET password_hash = $2,
+SET password_hash       = $2,
     password_changed_at = now()
 WHERE id = $1;

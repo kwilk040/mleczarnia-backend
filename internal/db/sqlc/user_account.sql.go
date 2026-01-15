@@ -11,7 +11,8 @@ import (
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO user_account (email, password_hash, role)
-VALUES ($1, $2, $3) RETURNING id, email, password_hash, role, is_active, last_login_at, customer_company_id, employee_id, password_changed_at
+VALUES ($1, $2, $3)
+RETURNING id, email, password_hash, role, is_active, last_login_at, customer_company_id, employee_id, password_changed_at
 `
 
 type CreateUserParams struct {
@@ -98,7 +99,7 @@ func (q *Queries) UpdateLastLogin(ctx context.Context, id int32) error {
 
 const updatePassword = `-- name: UpdatePassword :exec
 UPDATE user_account
-SET password_hash = $2,
+SET password_hash       = $2,
     password_changed_at = now()
 WHERE id = $1
 `

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"github.com/go-playground/validator/v10"
 	"mleczania/internal/db/sqlc"
 	"mleczania/internal/httputil"
 	"net/http"
@@ -22,13 +23,28 @@ type TokenResponse struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+type Address struct {
+	Address    string           `json:"address" validate:"required,max=255"`
+	City       string           `json:"city" validate:"required,max=100"`
+	PostalCode string           `json:"postalCode" validate:"required,max=20"`
+	Country    string           `json:"country" validate:"required,max=100"`
+	Type       sqlc.AddressType `json:"type" validate:"required,oneof=SHIPPING BILLING"`
+}
+
+type RegisterCompanyRequest struct {
+	Name        string    `json:"name" validate:"required,max=200"`
+	TaxId       string    `json:"taxId" validate:"required,max=20"`
+	MainEmail   string    `json:"mainEmail" validate:"required,email"`
+	PhoneNumber *string   `json:"phoneNumber" validate:"e164"`
+	Addresses   []Address `json:"addresses" validate:"required,min=1,dive"`
+	Email       string    `json:"email" validate:"required,email"`
+	Password    string    `json:"password" validate:"required"`
+}
+
 func (handler *Handler) RegisterCompany(writer http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
-	var body struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+	var body RegisterCompanyRequest
 
 	err := json.NewDecoder(request.Body).Decode(&body)
 	if err != nil {
@@ -37,7 +53,16 @@ func (handler *Handler) RegisterCompany(writer http.ResponseWriter, request *htt
 		return
 	}
 
-	err = handler.service.Register(request.Context(), body.Email, body.Password, sqlc.RoleCLIENT)
+	logrus.Infof("body: %+v", body)
+
+	err = validator.New().Struct(&body)
+	if err != nil {
+		logrus.WithError(err).Debug()
+		httputil.WriteError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	err = handler.service.RegisterCompany(request.Context(), body, sqlc.RoleCLIENT)
 	if err != nil {
 		logrus.WithError(err).Error("failed to register user")
 		httputil.WriteError(writer, http.StatusInternalServerError, "registration failed")

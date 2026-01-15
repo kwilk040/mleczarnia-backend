@@ -6,8 +6,28 @@ POST {{baseUrl}}/auth/register-company
 Content-Type: application/json
 
 {
-  "email": "test@mleczarnia.dev",
-  "password": "mleczko...mmmm"
+  "name": "Mleczko Sp. z o.o.",
+  "taxId": "123456789",
+  "mainEmail": "contact@mleczko.pl",
+  "phoneNumber": "+48123456789",
+  "addresses": [
+    {
+      "address": "ul. ulica 10",
+      "city": "Miasto",
+      "postalCode": "11-234",
+      "country": "Poland",
+      "type": "BILLING"
+    },
+    {
+      "address": "ul. ulica 5",
+      "city": "Inne miasto",
+      "postalCode": "36-127",
+      "country": "Poland",
+      "type": "SHIPPING"
+    }
+  ],
+  "email": "szef@mleczko.pl",
+  "password": "mleczko"
 }
 
 ###

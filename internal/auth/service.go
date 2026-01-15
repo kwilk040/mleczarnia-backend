@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mleczania/internal/db"
 	"mleczania/internal/db/sqlc"
 	"time"
 
@@ -28,19 +29,55 @@ func NewService(query *sqlc.Queries, jwtSecret []byte, pool *pgxpool.Pool) *Serv
 	return &Service{query: query, jwtSecret: jwtSecret, pool: pool}
 }
 
-func (service *Service) Register(ctx context.Context, email, password string, role sqlc.Role) error {
-	hash, err := HashPassword(password)
+func (service *Service) RegisterCompany(ctx context.Context, body RegisterCompanyRequest, role sqlc.Role) error {
+	tx, err := service.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := service.query.WithTx(tx)
+
+	company, err := qtx.CreateCustomerCompany(ctx, sqlc.CreateCustomerCompanyParams{
+		Name:      body.Name,
+		TaxID:     body.TaxId,
+		MainEmail: body.MainEmail,
+		Phone:     db.ConvertToText(body.PhoneNumber),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create company: %w", err)
+	}
+
+	for _, address := range body.Addresses {
+		_, err := qtx.CreateCompanyAddress(ctx, sqlc.CreateCompanyAddressParams{
+			CustomerCompanyID: company.ID,
+			AddressLine:       address.Address,
+			City:              address.City,
+			PostalCode:        address.PostalCode,
+			Country:           address.Country,
+			Type:              address.Type,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create address: %w", err)
+		}
+	}
+
+	hash, err := HashPassword(body.Password)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	_, err = service.query.CreateUser(ctx, sqlc.CreateUserParams{
-		Email:        email,
+	_, err = qtx.CreateUser(ctx, sqlc.CreateUserParams{
+		Email:        body.Email,
 		PasswordHash: hash,
 		Role:         role,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil

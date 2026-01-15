@@ -11,6 +11,91 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AccountType string
+
+const (
+	AccountTypeUNSPECIFIED     AccountType = "UNSPECIFIED"
+	AccountTypeCUSTOMERCOMPANY AccountType = "CUSTOMER_COMPANY"
+	AccountTypeEMPLOYEE        AccountType = "EMPLOYEE"
+)
+
+func (e *AccountType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AccountType(s)
+	case string:
+		*e = AccountType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AccountType: %T", src)
+	}
+	return nil
+}
+
+type NullAccountType struct {
+	AccountType AccountType
+	Valid       bool // Valid is true if AccountType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAccountType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AccountType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AccountType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAccountType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AccountType), nil
+}
+
+type AddressType string
+
+const (
+	AddressTypeBILLING  AddressType = "BILLING"
+	AddressTypeSHIPPING AddressType = "SHIPPING"
+)
+
+func (e *AddressType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AddressType(s)
+	case string:
+		*e = AddressType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AddressType: %T", src)
+	}
+	return nil
+}
+
+type NullAddressType struct {
+	AddressType AddressType
+	Valid       bool // Valid is true if AddressType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAddressType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AddressType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AddressType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAddressType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AddressType), nil
+}
+
 type Role string
 
 const (
@@ -53,6 +138,36 @@ func (ns NullRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.Role), nil
+}
+
+type CompanyAddress struct {
+	ID                int32
+	CustomerCompanyID int32
+	AddressLine       string
+	City              string
+	PostalCode        string
+	Country           string
+	Type              AddressType
+}
+
+type CustomerCompany struct {
+	ID        int32
+	Name      string
+	TaxID     string
+	MainEmail string
+	Phone     pgtype.Text
+	IsActive  bool
+	AtRisk    bool
+	CreatedAt pgtype.Timestamp
+}
+
+type Employee struct {
+	ID        int32
+	FirstName string
+	LastName  string
+	Position  string
+	IsActive  bool
+	HireDate  pgtype.Timestamp
 }
 
 type RefreshToken struct {
