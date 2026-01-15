@@ -35,32 +35,7 @@ func main() {
 	meService := me.NewService(queries, pool)
 	meHandler := me.NewHandler(meService)
 
-	if err := seedAdmin(ctx, authService, queries); err != nil {
-		logrus.WithError(err).Fatal("failed to seed admin")
-	}
-
 	r := app.Router(authHandler, meHandler, cfg.JWTSecret)
 	log.Fatal(http.ListenAndServe(":8080", r))
 
-}
-
-func seedAdmin(ctx context.Context, service *auth.Service, queries *sqlc.Queries) error {
-	const adminEmail = "admin@mleczarnia.dev"
-	const adminPassword = "admin"
-
-	_, err := queries.GetUserByEmail(ctx, adminEmail)
-	if err == nil {
-		logrus.Info("Admin user already exists")
-		return nil
-	}
-
-	if err := service.Register(ctx, adminEmail, adminPassword, sqlc.RoleADMIN); err != nil {
-		return err
-	}
-
-	logrus.WithFields(logrus.Fields{
-		"email":    adminEmail,
-		"password": adminPassword,
-	}).Info("Admin user created")
-	return nil
 }

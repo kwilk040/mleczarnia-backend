@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"encoding/json"
-	"github.com/go-playground/validator/v10"
 	"mleczania/internal/db/sqlc"
 	"mleczania/internal/httputil"
 	"net/http"
@@ -42,27 +40,11 @@ type RegisterCompanyRequest struct {
 }
 
 func (handler *Handler) RegisterCompany(writer http.ResponseWriter, request *http.Request) {
-	defer request.Body.Close()
-
 	var body RegisterCompanyRequest
 
-	err := json.NewDecoder(request.Body).Decode(&body)
-	if err != nil {
-		logrus.WithError(err).Debug("failed to parse request body")
-		httputil.WriteError(writer, http.StatusBadRequest, "invalid request body")
-		return
-	}
+	httputil.DecodeAndValidateBody(writer, request.Body, &body)
 
-	logrus.Infof("body: %+v", body)
-
-	err = validator.New().Struct(&body)
-	if err != nil {
-		logrus.WithError(err).Debug()
-		httputil.WriteError(writer, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	err = handler.service.RegisterCompany(request.Context(), body, sqlc.RoleCLIENT)
+	err := handler.service.RegisterCompany(request.Context(), body)
 	if err != nil {
 		logrus.WithError(err).Error("failed to register user")
 		httputil.WriteError(writer, http.StatusInternalServerError, "registration failed")
@@ -73,19 +55,12 @@ func (handler *Handler) RegisterCompany(writer http.ResponseWriter, request *htt
 }
 
 func (handler *Handler) Login(writer http.ResponseWriter, request *http.Request) {
-	defer request.Body.Close()
-
 	var body struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email    string `json:"email" validate:"required,email"`
+		Password string `json:"password" validate:"required"`
 	}
 
-	err := json.NewDecoder(request.Body).Decode(&body)
-	if err != nil {
-		logrus.WithError(err).Debug("failed to parse body")
-		httputil.WriteError(writer, http.StatusBadRequest, "invalid request body")
-		return
-	}
+	httputil.DecodeAndValidateBody(writer, request.Body, &body)
 
 	accessToken, refreshToken, err := handler.service.Login(request.Context(), body.Email, body.Password)
 	if err != nil {
@@ -101,23 +76,11 @@ func (handler *Handler) Login(writer http.ResponseWriter, request *http.Request)
 }
 
 func (handler *Handler) RefreshToken(writer http.ResponseWriter, request *http.Request) {
-	defer request.Body.Close()
-
 	var body struct {
-		RefreshToken string `json:"refreshToken"`
+		RefreshToken string `json:"refreshToken" validate:"required"`
 	}
 
-	err := json.NewDecoder(request.Body).Decode(&body)
-	if err != nil {
-		logrus.WithError(err).Debug("failed to decode refresh token request")
-		httputil.WriteError(writer, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if body.RefreshToken == "" {
-		httputil.WriteError(writer, http.StatusBadRequest, "refresh token is required")
-		return
-	}
+	httputil.DecodeAndValidateBody(writer, request.Body, &body)
 
 	accessToken, refreshToken, err := handler.service.RefreshToken(request.Context(), body.RefreshToken)
 	if err != nil {
@@ -133,22 +96,11 @@ func (handler *Handler) RefreshToken(writer http.ResponseWriter, request *http.R
 }
 
 func (handler *Handler) Logout(writer http.ResponseWriter, request *http.Request) {
-	defer request.Body.Close()
-
 	var body struct {
-		RefreshToken string `json:"refreshToken"`
+		RefreshToken string `json:"refreshToken" validate:"required"`
 	}
 
-	if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-		logrus.WithError(err).Debug("failed to decode logout request")
-		httputil.WriteError(writer, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if body.RefreshToken == "" {
-		httputil.WriteError(writer, http.StatusBadRequest, "refresh token is required")
-		return
-	}
+	httputil.DecodeAndValidateBody(writer, request.Body, &body)
 
 	if err := handler.service.Logout(request.Context(), body.RefreshToken); err != nil {
 		logrus.WithError(err).Error("failed to logout")

@@ -29,7 +29,7 @@ func NewService(query *sqlc.Queries, jwtSecret []byte, pool *pgxpool.Pool) *Serv
 	return &Service{query: query, jwtSecret: jwtSecret, pool: pool}
 }
 
-func (service *Service) RegisterCompany(ctx context.Context, body RegisterCompanyRequest, role sqlc.Role) error {
+func (service *Service) RegisterCompany(ctx context.Context, body RegisterCompanyRequest) error {
 	tx, err := service.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
@@ -70,7 +70,7 @@ func (service *Service) RegisterCompany(ctx context.Context, body RegisterCompan
 	_, err = qtx.CreateUserForCompany(ctx, sqlc.CreateUserForCompanyParams{
 		Email:        body.Email,
 		PasswordHash: hash,
-		Role:         role,
+		Role:         sqlc.RoleCLIENT,
 		CustomerCompanyID: pgtype.Int4{
 			Int32: company.ID,
 			Valid: true,
