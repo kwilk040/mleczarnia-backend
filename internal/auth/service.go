@@ -67,10 +67,14 @@ func (service *Service) RegisterCompany(ctx context.Context, body RegisterCompan
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	_, err = qtx.CreateUser(ctx, sqlc.CreateUserParams{
+	_, err = qtx.CreateUserForCompany(ctx, sqlc.CreateUserForCompanyParams{
 		Email:        body.Email,
 		PasswordHash: hash,
 		Role:         role,
+		CustomerCompanyID: pgtype.Int4{
+			Int32: company.ID,
+			Valid: true,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)

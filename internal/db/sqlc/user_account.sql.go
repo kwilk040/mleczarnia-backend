@@ -7,6 +7,8 @@ package sqlc
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -23,6 +25,41 @@ type CreateUserParams struct {
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (UserAccount, error) {
 	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.PasswordHash, arg.Role)
+	var i UserAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.LastLoginAt,
+		&i.CustomerCompanyID,
+		&i.EmployeeID,
+		&i.PasswordChangedAt,
+	)
+	return i, err
+}
+
+const createUserForCompany = `-- name: CreateUserForCompany :one
+INSERT INTO user_account (email, password_hash, role, customer_company_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, email, password_hash, role, is_active, last_login_at, customer_company_id, employee_id, password_changed_at
+`
+
+type CreateUserForCompanyParams struct {
+	Email             string
+	PasswordHash      string
+	Role              Role
+	CustomerCompanyID pgtype.Int4
+}
+
+func (q *Queries) CreateUserForCompany(ctx context.Context, arg CreateUserForCompanyParams) (UserAccount, error) {
+	row := q.db.QueryRow(ctx, createUserForCompany,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Role,
+		arg.CustomerCompanyID,
+	)
 	var i UserAccount
 	err := row.Scan(
 		&i.ID,
