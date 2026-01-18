@@ -1,8 +1,11 @@
 package auth
 
 import (
-	"mleczania/internal/db/sqlc"
+	"errors"
+	"mleczania/internal/crypto"
 	"mleczania/internal/httputil"
+	"mleczania/internal/jwt"
+	"mleczania/internal/users"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -16,38 +19,16 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-type TokenResponse struct {
-	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
-}
-
-type Address struct {
-	Address    string           `json:"address" validate:"required,max=255"`
-	City       string           `json:"city" validate:"required,max=100"`
-	PostalCode string           `json:"postalCode" validate:"required,max=20"`
-	Country    string           `json:"country" validate:"required,max=100"`
-	Type       sqlc.AddressType `json:"type" validate:"required,oneof=SHIPPING BILLING"`
-}
-
-type RegisterCompanyRequest struct {
-	Name        string    `json:"name" validate:"required,max=200"`
-	TaxId       string    `json:"taxId" validate:"required,max=20"`
-	MainEmail   string    `json:"mainEmail" validate:"required,email"`
-	PhoneNumber *string   `json:"phoneNumber" validate:"e164"`
-	Addresses   []Address `json:"addresses" validate:"required,min=1,dive"`
-	Email       string    `json:"email" validate:"required,email"`
-	Password    string    `json:"password" validate:"required"`
-}
-
 func (handler *Handler) RegisterCompany(writer http.ResponseWriter, request *http.Request) {
 	var body RegisterCompanyRequest
 
-	httputil.DecodeAndValidateBody(writer, request.Body, &body)
+	if err := httputil.DecodeAndValidateBody(writer, request.Body, &body); err != nil {
+		httputil.WriteError(writer, http.StatusBadRequest, "invalid request")
+		return
+	}
 
-	err := handler.service.RegisterCompany(request.Context(), body)
-	if err != nil {
-		logrus.WithError(err).Error("failed to register user")
-		httputil.WriteError(writer, http.StatusInternalServerError, "registration failed")
+	if err := handler.service.RegisterCompany(request.Context(), body); err != nil {
+		handler.handleServiceError(writer, err)
 		return
 	}
 
@@ -55,58 +36,77 @@ func (handler *Handler) RegisterCompany(writer http.ResponseWriter, request *htt
 }
 
 func (handler *Handler) Login(writer http.ResponseWriter, request *http.Request) {
-	var body struct {
-		Email    string `json:"email" validate:"required,email"`
-		Password string `json:"password" validate:"required"`
-	}
-
-	httputil.DecodeAndValidateBody(writer, request.Body, &body)
-
-	accessToken, refreshToken, err := handler.service.Login(request.Context(), body.Email, body.Password)
-	if err != nil {
-		logrus.WithError(err).Error("failed to login")
-		httputil.WriteError(writer, http.StatusInternalServerError, "invalid credentials")
+	var body LoginRequest
+	if err := httputil.DecodeAndValidateBody(writer, request.Body, &body); err != nil {
+		httputil.WriteError(writer, http.StatusBadRequest, "invalid request")
 		return
 	}
 
-	httputil.WriteJSON(writer, http.StatusOK, TokenResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	})
+	response, err := handler.service.Login(request.Context(), body.Email, body.Password)
+	if err != nil {
+		handler.handleServiceError(writer, err)
+		return
+	}
+
+	httputil.WriteJSON(writer, http.StatusOK, response)
 }
 
 func (handler *Handler) RefreshToken(writer http.ResponseWriter, request *http.Request) {
-	var body struct {
-		RefreshToken string `json:"refreshToken" validate:"required"`
-	}
-
-	httputil.DecodeAndValidateBody(writer, request.Body, &body)
-
-	accessToken, refreshToken, err := handler.service.RefreshToken(request.Context(), body.RefreshToken)
-	if err != nil {
-		logrus.WithError(err).Debug("failed to refresh token")
-		httputil.WriteError(writer, http.StatusUnauthorized, "invalid or expired refresh token")
+	var body RefreshTokenRequest
+	if err := httputil.DecodeAndValidateBody(writer, request.Body, &body); err != nil {
+		httputil.WriteError(writer, http.StatusBadRequest, "invalid request")
 		return
 	}
 
-	httputil.WriteJSON(writer, http.StatusOK, TokenResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	})
+	response, err := handler.service.RefreshToken(request.Context(), body.RefreshToken)
+	if err != nil {
+		handler.handleServiceError(writer, err)
+		return
+	}
+
+	httputil.WriteJSON(writer, http.StatusOK, response)
 }
 
 func (handler *Handler) Logout(writer http.ResponseWriter, request *http.Request) {
-	var body struct {
-		RefreshToken string `json:"refreshToken" validate:"required"`
+	var body LogoutRequest
+	if err := httputil.DecodeAndValidateBody(writer, request.Body, &body); err != nil {
+		httputil.WriteError(writer, http.StatusBadRequest, "invalid request")
+		return
 	}
 
-	httputil.DecodeAndValidateBody(writer, request.Body, &body)
-
 	if err := handler.service.Logout(request.Context(), body.RefreshToken); err != nil {
-		logrus.WithError(err).Error("failed to logout")
-		httputil.WriteError(writer, http.StatusInternalServerError, "logout failed")
+		handler.handleServiceError(writer, err)
 		return
 	}
 
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *Handler) handleServiceError(writer http.ResponseWriter, err error) {
+	statusCode, message := handler.mapErrorToResponse(err)
+	logrus.WithError(err).Info()
+	httputil.WriteError(writer, statusCode, message)
+}
+
+func (handler *Handler) mapErrorToResponse(err error) (int, string) {
+	switch {
+	case errors.Is(err, ErrInvalidCredentials):
+		return http.StatusUnauthorized, ErrInvalidCredentials.Error()
+	case errors.Is(err, jwt.ErrInvalidRefreshToken):
+		return http.StatusUnauthorized, jwt.ErrInvalidRefreshToken.Error()
+	case errors.Is(err, jwt.ErrExpiredToken):
+		return http.StatusUnauthorized, jwt.ErrExpiredToken.Error()
+
+	case errors.Is(err, ErrUserBlocked):
+		return http.StatusForbidden, ErrUserBlocked.Error()
+
+	case errors.Is(err, users.ErrUserNotFound):
+		return http.StatusNotFound, users.ErrUserNotFound.Error()
+
+	case errors.Is(err, crypto.ErrPasswordHash):
+		return http.StatusBadRequest, crypto.ErrPasswordHash.Error()
+
+	default:
+		return http.StatusInternalServerError, "internal server error"
+	}
 }

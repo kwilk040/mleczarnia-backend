@@ -2,6 +2,7 @@ package httputil
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -21,20 +22,19 @@ func WriteError(writer http.ResponseWriter, status int, message string) {
 	WriteJSON(writer, status, ErrorResponse{Error: message})
 }
 
-func DecodeAndValidateBody[T any](writer http.ResponseWriter, body io.ReadCloser, data *T) {
+func DecodeAndValidateBody[T any](writer http.ResponseWriter, body io.ReadCloser, data *T) error {
 	defer body.Close()
 
 	err := json.NewDecoder(body).Decode(data)
 	if err != nil {
 		logrus.WithError(err).Debug("failed to parse request body")
-		WriteError(writer, http.StatusBadRequest, "invalid request body")
-		return
+		return errors.New("invalid request body")
 	}
 
 	err = validator.New().Struct(data)
 	if err != nil {
 		logrus.WithError(err).Debug()
-		WriteError(writer, http.StatusBadRequest, err.Error())
-		return
+		return err
 	}
+	return nil
 }

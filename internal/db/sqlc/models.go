@@ -140,6 +140,49 @@ func (ns NullRole) Value() (driver.Value, error) {
 	return string(ns.Role), nil
 }
 
+type UserStatus string
+
+const (
+	UserStatusACTIVE   UserStatus = "ACTIVE"
+	UserStatusBLOCKED  UserStatus = "BLOCKED"
+	UserStatusINACTIVE UserStatus = "INACTIVE"
+)
+
+func (e *UserStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = UserStatus(s)
+	case string:
+		*e = UserStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for UserStatus: %T", src)
+	}
+	return nil
+}
+
+type NullUserStatus struct {
+	UserStatus UserStatus
+	Valid      bool // Valid is true if UserStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullUserStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.UserStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.UserStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullUserStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.UserStatus), nil
+}
+
 type CompanyAddress struct {
 	ID                int32
 	CustomerCompanyID int32
@@ -185,6 +228,7 @@ type UserAccount struct {
 	PasswordHash      string
 	Role              Role
 	IsActive          bool
+	IsBlocked         bool
 	LastLoginAt       pgtype.Timestamptz
 	CustomerCompanyID pgtype.Int4
 	EmployeeID        pgtype.Int4

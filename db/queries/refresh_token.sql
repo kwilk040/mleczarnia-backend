@@ -10,10 +10,11 @@ WHERE token = $1
   AND revoked = false
   AND expires_at > now();
 
--- name: RevokeRefreshToken :exec
+-- name: RevokeRefreshToken :one
 UPDATE refresh_token
 SET revoked = true
-WHERE token = $1;
+WHERE token = $1
+RETURNING *;
 
 -- name: RevokeAllUserTokens :exec
 UPDATE refresh_token

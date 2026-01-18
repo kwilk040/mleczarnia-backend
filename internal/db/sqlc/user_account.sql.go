@@ -11,10 +11,35 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const blockUser = `-- name: BlockUser :one
+UPDATE user_account
+SET is_blocked = true
+WHERE id = $1
+RETURNING id, email, password_hash, role, is_active, is_blocked, last_login_at, customer_company_id, employee_id, password_changed_at
+`
+
+func (q *Queries) BlockUser(ctx context.Context, id int32) (UserAccount, error) {
+	row := q.db.QueryRow(ctx, blockUser, id)
+	var i UserAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.IsBlocked,
+		&i.LastLoginAt,
+		&i.CustomerCompanyID,
+		&i.EmployeeID,
+		&i.PasswordChangedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO user_account (email, password_hash, role)
 VALUES ($1, $2, $3)
-RETURNING id, email, password_hash, role, is_active, last_login_at, customer_company_id, employee_id, password_changed_at
+RETURNING id, email, password_hash, role, is_active, is_blocked, last_login_at, customer_company_id, employee_id, password_changed_at
 `
 
 type CreateUserParams struct {
@@ -32,6 +57,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (UserAcc
 		&i.PasswordHash,
 		&i.Role,
 		&i.IsActive,
+		&i.IsBlocked,
 		&i.LastLoginAt,
 		&i.CustomerCompanyID,
 		&i.EmployeeID,
@@ -43,7 +69,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (UserAcc
 const createUserForCompany = `-- name: CreateUserForCompany :one
 INSERT INTO user_account (email, password_hash, role, customer_company_id)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, password_hash, role, is_active, last_login_at, customer_company_id, employee_id, password_changed_at
+RETURNING id, email, password_hash, role, is_active, is_blocked, last_login_at, customer_company_id, employee_id, password_changed_at
 `
 
 type CreateUserForCompanyParams struct {
@@ -67,6 +93,43 @@ func (q *Queries) CreateUserForCompany(ctx context.Context, arg CreateUserForCom
 		&i.PasswordHash,
 		&i.Role,
 		&i.IsActive,
+		&i.IsBlocked,
+		&i.LastLoginAt,
+		&i.CustomerCompanyID,
+		&i.EmployeeID,
+		&i.PasswordChangedAt,
+	)
+	return i, err
+}
+
+const createUserForEmployee = `-- name: CreateUserForEmployee :one
+INSERT INTO user_account (email, password_hash, role, employee_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, email, password_hash, role, is_active, is_blocked, last_login_at, customer_company_id, employee_id, password_changed_at
+`
+
+type CreateUserForEmployeeParams struct {
+	Email        string
+	PasswordHash string
+	Role         Role
+	EmployeeID   pgtype.Int4
+}
+
+func (q *Queries) CreateUserForEmployee(ctx context.Context, arg CreateUserForEmployeeParams) (UserAccount, error) {
+	row := q.db.QueryRow(ctx, createUserForEmployee,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Role,
+		arg.EmployeeID,
+	)
+	var i UserAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.IsBlocked,
 		&i.LastLoginAt,
 		&i.CustomerCompanyID,
 		&i.EmployeeID,
@@ -76,7 +139,7 @@ func (q *Queries) CreateUserForCompany(ctx context.Context, arg CreateUserForCom
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, role, is_active, last_login_at, customer_company_id, employee_id, password_changed_at
+SELECT id, email, password_hash, role, is_active, is_blocked, last_login_at, customer_company_id, employee_id, password_changed_at
 FROM user_account
 WHERE email = $1
   AND is_active = true
@@ -91,6 +154,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (UserAccount
 		&i.PasswordHash,
 		&i.Role,
 		&i.IsActive,
+		&i.IsBlocked,
 		&i.LastLoginAt,
 		&i.CustomerCompanyID,
 		&i.EmployeeID,
@@ -100,10 +164,9 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (UserAccount
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, role, is_active, last_login_at, customer_company_id, employee_id, password_changed_at
+SELECT id, email, password_hash, role, is_active, is_blocked, last_login_at, customer_company_id, employee_id, password_changed_at
 FROM user_account
 WHERE id = $1
-  AND is_active = true
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int32) (UserAccount, error) {
@@ -115,6 +178,45 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (UserAccount, error
 		&i.PasswordHash,
 		&i.Role,
 		&i.IsActive,
+		&i.IsBlocked,
+		&i.LastLoginAt,
+		&i.CustomerCompanyID,
+		&i.EmployeeID,
+		&i.PasswordChangedAt,
+	)
+	return i, err
+}
+
+const isUserBlocked = `-- name: IsUserBlocked :one
+SELECT is_blocked
+FROM user_account
+WHERE id = $1
+`
+
+func (q *Queries) IsUserBlocked(ctx context.Context, id int32) (bool, error) {
+	row := q.db.QueryRow(ctx, isUserBlocked, id)
+	var is_blocked bool
+	err := row.Scan(&is_blocked)
+	return is_blocked, err
+}
+
+const unblockUser = `-- name: UnblockUser :one
+UPDATE user_account
+SET is_blocked = false
+WHERE id = $1
+RETURNING id, email, password_hash, role, is_active, is_blocked, last_login_at, customer_company_id, employee_id, password_changed_at
+`
+
+func (q *Queries) UnblockUser(ctx context.Context, id int32) (UserAccount, error) {
+	row := q.db.QueryRow(ctx, unblockUser, id)
+	var i UserAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.IsBlocked,
 		&i.LastLoginAt,
 		&i.CustomerCompanyID,
 		&i.EmployeeID,
@@ -149,4 +251,54 @@ type UpdatePasswordParams struct {
 func (q *Queries) UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error {
 	_, err := q.db.Exec(ctx, updatePassword, arg.ID, arg.PasswordHash)
 	return err
+}
+
+const updateUser = `-- name: UpdateUser :one
+UPDATE user_account
+SET email               = coalesce($1, email),
+    role                = coalesce($2, role),
+    employee_id         = CASE
+                              WHEN $3::account_type = 'EMPLOYEE' THEN $4
+                              WHEN $3::account_type IS NOT NULL THEN NULL
+                              ELSE employee_id
+        END,
+    customer_company_id = CASE
+                              WHEN $3::account_type = 'CUSTOMER_COMPANY' THEN $4
+                              WHEN $3::account_type IS NOT NULL THEN NULL
+                              ELSE customer_company_id
+        END
+WHERE id = $5
+RETURNING id, email, password_hash, role, is_active, is_blocked, last_login_at, customer_company_id, employee_id, password_changed_at
+`
+
+type UpdateUserParams struct {
+	Email       pgtype.Text
+	Role        NullRole
+	AccountType NullAccountType
+	AssignTo    pgtype.Int4
+	ID          int32
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (UserAccount, error) {
+	row := q.db.QueryRow(ctx, updateUser,
+		arg.Email,
+		arg.Role,
+		arg.AccountType,
+		arg.AssignTo,
+		arg.ID,
+	)
+	var i UserAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.IsBlocked,
+		&i.LastLoginAt,
+		&i.CustomerCompanyID,
+		&i.EmployeeID,
+		&i.PasswordChangedAt,
+	)
+	return i, err
 }

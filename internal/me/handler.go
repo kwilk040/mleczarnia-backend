@@ -1,12 +1,13 @@
 package me
 
 import (
-	"encoding/json"
-	"mleczania/internal/auth"
+	"errors"
+	"mleczania/internal/crypto"
+	app "mleczania/internal/http"
 	"mleczania/internal/httputil"
+	"mleczania/internal/jwt"
+	"mleczania/internal/users"
 	"net/http"
-	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -19,75 +20,61 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-type GetProfileResponse struct {
-	Email             string     `json:"email"`
-	Role              string     `json:"role"`
-	LastLoginAt       *time.Time `json:"lastLoginAt"`
-	CustomerCompanyId *int32     `json:"customerCompanyId"`
-	EmployeeId        *int32     `json:"employeeId"`
-}
-
 func (handler *Handler) GetProfile(writer http.ResponseWriter, request *http.Request) {
-	defer request.Body.Close()
-
-	claims, ok := request.Context().Value(auth.UserCtxKey).(*auth.Claims)
+	claims, ok := request.Context().Value(app.UserCtxKey).(*jwt.Claims)
 	if !ok {
 		httputil.WriteError(writer, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	response, err := handler.service.GetProfile(request.Context(), int32(claims.UserID))
+	response, err := handler.service.GetProfile(request.Context(), int32(claims.UserId))
 	if err != nil {
-		httputil.WriteError(writer, http.StatusBadRequest, err.Error())
+		handler.handleServiceError(writer, err)
 	}
 
 	httputil.WriteJSON(writer, http.StatusOK, response)
 }
 
 func (handler *Handler) ChangePassword(writer http.ResponseWriter, request *http.Request) {
-	defer request.Body.Close()
-
-	claims, ok := request.Context().Value(auth.UserCtxKey).(*auth.Claims)
+	claims, ok := request.Context().Value(app.UserCtxKey).(*jwt.Claims)
 	if !ok {
 		httputil.WriteError(writer, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	var body struct {
-		CurrentPassword string `json:"currentPassword"`
-		NewPassword     string `json:"newPassword"`
-	}
-
-	if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-		logrus.WithError(err).Debug("failed to decode change password request")
-		httputil.WriteError(writer, http.StatusBadRequest, "invalid request body")
+	var changePasswordRequest ChangePasswordRequest
+	if err := httputil.DecodeAndValidateBody(writer, request.Body, &changePasswordRequest); err != nil {
+		httputil.WriteError(writer, http.StatusBadRequest, "bad request")
 		return
 	}
 
-	if body.CurrentPassword == "" {
-		httputil.WriteError(writer, http.StatusBadRequest, "current_password is required")
+	if err := handler.service.ChangePassword(request.Context(), int32(claims.UserId), changePasswordRequest); err != nil {
+		handler.handleServiceError(writer, err)
 		return
 	}
-	if body.NewPassword == "" {
-		httputil.WriteError(writer, http.StatusBadRequest, "new_password is required")
-		return
-	}
-
-	if err := handler.service.ChangePassword(request.Context(), int32(claims.UserID), body.CurrentPassword, body.NewPassword); err != nil {
-		logrus.WithError(err).Debug("password change failed")
-
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "incorrect") {
-			httputil.WriteError(writer, http.StatusUnauthorized, "current password is incorrect")
-		} else if strings.Contains(errMsg, "validation") || strings.Contains(errMsg, "must") {
-			httputil.WriteError(writer, http.StatusBadRequest, errMsg)
-		} else {
-			httputil.WriteError(writer, http.StatusInternalServerError, "failed to change password")
-		}
-		return
-	}
-
-	httputil.WriteJSON(writer, http.StatusOK, httputil.MessageResponse{
+	httputil.WriteJSON(writer, http.StatusOK, ChangePasswordResponse{
 		Message: "Password changed successfully. Please login again on all devices.",
 	})
+}
+
+func (handler *Handler) handleServiceError(writer http.ResponseWriter, err error) {
+	statusCode, message := handler.mapErrorToResponse(err)
+	logrus.WithError(err).Info()
+	httputil.WriteError(writer, statusCode, message)
+}
+
+func (handler *Handler) mapErrorToResponse(err error) (int, string) {
+	switch {
+	case errors.Is(err, crypto.ErrInvalidPassword):
+		return http.StatusUnauthorized, crypto.ErrInvalidPassword.Error()
+
+	case errors.Is(err, crypto.ErrSamePassword):
+		return http.StatusBadRequest, crypto.ErrSamePassword.Error()
+
+	case errors.Is(err, users.ErrUserNotFound):
+		return http.StatusNotFound, users.ErrUserNotFound.Error()
+
+	default:
+		return http.StatusInternalServerError, "internal server error"
+	}
 }

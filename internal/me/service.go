@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"mleczania/internal/auth"
+	"mleczania/internal/crypto"
+	"mleczania/internal/db"
 	"mleczania/internal/db/sqlc"
+	"mleczania/internal/users"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sirupsen/logrus"
 )
 
 type Service struct {
@@ -20,12 +22,59 @@ func NewService(query *sqlc.Queries, pool *pgxpool.Pool) *Service {
 	return &Service{query: query, pool: pool}
 }
 
-func (service *Service) GetProfile(ctx context.Context, userID int32) (GetProfileResponse, error) {
+func (service *Service) GetProfile(ctx context.Context, userID int32) (*GetProfileResponse, error) {
 	user, err := service.query.GetUserByID(ctx, userID)
 	if err != nil {
-		return GetProfileResponse{}, errors.New("user not found")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, users.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("%w: %v", db.ErrDatabaseOperation, err)
 	}
 
+	return mapUserToProfile(user), nil
+}
+
+func (service *Service) ChangePassword(ctx context.Context, userID int32, request ChangePasswordRequest) error {
+	return db.WithinTransaction(ctx, service.pool, func(tx pgx.Tx) error {
+		qtx := service.query.WithTx(tx)
+
+		user, err := qtx.GetUserByID(ctx, userID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return users.ErrUserNotFound
+			}
+			return fmt.Errorf("%w: %v", db.ErrDatabaseOperation, err)
+		}
+
+		if err := crypto.CheckPassword(user.PasswordHash, request.CurrentPassword); err != nil {
+			return crypto.ErrInvalidPassword
+		}
+
+		if err := crypto.CheckPassword(user.PasswordHash, request.NewPassword); err == nil {
+			return crypto.ErrSamePassword
+		}
+
+		newHash, err := crypto.HashPassword(request.NewPassword)
+		if err != nil {
+			return err
+		}
+
+		if err := qtx.UpdatePassword(ctx, sqlc.UpdatePasswordParams{
+			ID:           userID,
+			PasswordHash: newHash,
+		}); err != nil {
+			return fmt.Errorf("%w: %v", ErrPasswordUpdateFailed, err)
+		}
+
+		if err := qtx.RevokeAllUserTokens(ctx, userID); err != nil {
+			return fmt.Errorf("%w: %v", ErrAllTokenRevokeFailed, err)
+		}
+
+		return nil
+	})
+}
+
+func mapUserToProfile(user sqlc.UserAccount) *GetProfileResponse {
 	response := GetProfileResponse{
 		Email: user.Email,
 		Role:  string(user.Role),
@@ -43,59 +92,5 @@ func (service *Service) GetProfile(ctx context.Context, userID int32) (GetProfil
 		response.EmployeeId = &user.EmployeeID.Int32
 	}
 
-	return response, nil
-}
-
-func (service *Service) ChangePassword(ctx context.Context, userID int32, currentPassword, newPassword string) error {
-	tx, err := service.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to start transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	qtx := service.query.WithTx(tx)
-
-	user, err := qtx.GetUserByID(ctx, userID)
-	if err != nil {
-		return errors.New("user not found")
-	}
-
-	if err := auth.CheckPassword(user.PasswordHash, currentPassword); err != nil {
-		logrus.WithFields(logrus.Fields{
-			"user_id": userID,
-			"email":   user.Email,
-		}).Warn("failed password change attempt - incorrect current password")
-		return errors.New("current password is incorrect")
-	}
-
-	if err := auth.CheckPassword(user.PasswordHash, newPassword); err == nil {
-		return errors.New("new password must be different from current password")
-	}
-
-	newHash, err := auth.HashPassword(newPassword)
-	if err != nil {
-		return fmt.Errorf("failed to hash new password: %w", err)
-	}
-
-	if err := qtx.UpdatePassword(ctx, sqlc.UpdatePasswordParams{
-		ID:           userID,
-		PasswordHash: newHash,
-	}); err != nil {
-		return fmt.Errorf("failed to update password: %w", err)
-	}
-
-	if err := qtx.RevokeAllUserTokens(ctx, userID); err != nil {
-		return fmt.Errorf("failed to revoke tokens: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	logrus.WithFields(logrus.Fields{
-		"user_id": userID,
-		"email":   user.Email,
-	}).Info("password changed successfully")
-
-	return nil
+	return &response
 }

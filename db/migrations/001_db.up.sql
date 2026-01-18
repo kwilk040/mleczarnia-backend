@@ -6,6 +6,8 @@ CREATE TYPE account_type AS ENUM ('UNSPECIFIED', 'CUSTOMER_COMPANY', 'EMPLOYEE')
 
 CREATE TYPE address_type AS ENUM ('BILLING', 'SHIPPING');
 
+CREATE TYPE user_status AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE');
+
 CREATE TABLE employee
 (
     id         INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -46,6 +48,7 @@ CREATE TABLE user_account
     password_hash       TEXT         NOT NULL,
     role                role         NOT NULL,
     is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
+    is_blocked          BOOLEAN      NOT NULL DEFAULT FALSE,
     last_login_at       TIMESTAMPTZ  NULL,
     customer_company_id INT          NULL REFERENCES customer_company (id),
     employee_id         INT          NULL REFERENCES employee (id),

@@ -44,3 +44,25 @@ func (q *Queries) CreateCustomerCompany(ctx context.Context, arg CreateCustomerC
 	)
 	return i, err
 }
+
+const getCustomerCompanyById = `-- name: GetCustomerCompanyById :one
+SELECT id, name, tax_id, main_email, phone, is_active, at_risk, created_at
+FROM customer_company
+WHERE id = $1
+`
+
+func (q *Queries) GetCustomerCompanyById(ctx context.Context, id int32) (CustomerCompany, error) {
+	row := q.db.QueryRow(ctx, getCustomerCompanyById, id)
+	var i CustomerCompany
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.TaxID,
+		&i.MainEmail,
+		&i.Phone,
+		&i.IsActive,
+		&i.AtRisk,
+		&i.CreatedAt,
+	)
+	return i, err
+}

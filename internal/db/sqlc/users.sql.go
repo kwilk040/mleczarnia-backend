@@ -11,8 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const listUsers = `-- name: ListUsers :many
-SELECT CASE
+const getUserWithDetailsById = `-- name: GetUserWithDetailsById :one
+SELECT u.Id,
+       CASE
            WHEN e.id IS NOT NULL THEN concat_ws(' ', e.first_name, e.last_name)
            WHEN c.id IS NOT NULL THEN c.name
            ELSE ''
@@ -24,7 +25,63 @@ SELECT CASE
            WHEN c.id IS NOT NULL THEN 'CUSTOMER_COMPANY'
            ELSE 'UNSPECIFIED'
            END::account_type as account_type,
-       u.is_active,
+       CASE
+           WHEN u.is_blocked IS TRUE THEN 'BLOCKED'
+           WHEN u.is_active IS TRUE THEN 'ACTIVE'
+           ELSE 'INACTIVE'
+           END::user_status  AS status,
+       u.last_login_at
+FROM user_account AS u
+         LEFT JOIN employee AS e
+                   ON (u.employee_id = e.id)
+         LEFT JOIN customer_company AS c ON (u.customer_company_id = c.id)
+WHERE u.id = $1
+`
+
+type GetUserWithDetailsByIdRow struct {
+	ID          int32
+	Name        string
+	Email       string
+	Role        Role
+	AccountType AccountType
+	Status      UserStatus
+	LastLoginAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetUserWithDetailsById(ctx context.Context, id int32) (GetUserWithDetailsByIdRow, error) {
+	row := q.db.QueryRow(ctx, getUserWithDetailsById, id)
+	var i GetUserWithDetailsByIdRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Role,
+		&i.AccountType,
+		&i.Status,
+		&i.LastLoginAt,
+	)
+	return i, err
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT u.Id,
+       CASE
+           WHEN e.id IS NOT NULL THEN concat_ws(' ', e.first_name, e.last_name)
+           WHEN c.id IS NOT NULL THEN c.name
+           ELSE ''
+           END               AS name,
+       u.email,
+       u.role,
+       CASE
+           WHEN e.id IS NOT NULL THEN 'EMPLOYEE'
+           WHEN c.id IS NOT NULL THEN 'CUSTOMER_COMPANY'
+           ELSE 'UNSPECIFIED'
+           END::account_type as account_type,
+       CASE
+           WHEN u.is_blocked IS TRUE THEN 'BLOCKED'
+           WHEN u.is_active IS TRUE THEN 'ACTIVE'
+           ELSE 'INACTIVE'
+           END::user_status  AS status,
        u.last_login_at
 FROM user_account AS u
          LEFT JOIN employee AS e
@@ -33,11 +90,12 @@ FROM user_account AS u
 `
 
 type ListUsersRow struct {
+	ID          int32
 	Name        string
 	Email       string
 	Role        Role
 	AccountType AccountType
-	IsActive    bool
+	Status      UserStatus
 	LastLoginAt pgtype.Timestamptz
 }
 
@@ -51,11 +109,12 @@ func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
 	for rows.Next() {
 		var i ListUsersRow
 		if err := rows.Scan(
+			&i.ID,
 			&i.Name,
 			&i.Email,
 			&i.Role,
 			&i.AccountType,
-			&i.IsActive,
+			&i.Status,
 			&i.LastLoginAt,
 		); err != nil {
 			return nil, err
