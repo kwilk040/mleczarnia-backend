@@ -138,6 +138,19 @@ func (q *Queries) CreateUserForEmployee(ctx context.Context, arg CreateUserForEm
 	return i, err
 }
 
+const getCompanyIdForUserId = `-- name: GetCompanyIdForUserId :one
+SELECT customer_company_id
+FROM user_account
+WHERE user_account.id = $1
+`
+
+func (q *Queries) GetCompanyIdForUserId(ctx context.Context, id int32) (pgtype.Int4, error) {
+	row := q.db.QueryRow(ctx, getCompanyIdForUserId, id)
+	var customer_company_id pgtype.Int4
+	err := row.Scan(&customer_company_id)
+	return customer_company_id, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, password_hash, role, is_active, is_blocked, last_login_at, customer_company_id, employee_id, password_changed_at
 FROM user_account

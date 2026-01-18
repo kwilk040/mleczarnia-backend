@@ -1,6 +1,7 @@
 package users
 
 import (
+	"mleczania/internal/db/sqlc"
 	app "mleczania/internal/http"
 	"net/http"
 
@@ -12,7 +13,7 @@ func Router(
 	authMiddleware *app.Middleware) http.Handler {
 	router := chi.NewRouter()
 
-	router.Use(authMiddleware.RequireAdmin())
+	router.Use(authMiddleware.RequireRole(sqlc.RoleADMIN))
 	router.Use(authMiddleware.CheckBlockStatus())
 
 	router.Get("/", usersHandler.ListUsers)

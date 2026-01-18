@@ -5,6 +5,8 @@ import (
 	"log"
 	"mleczania/config"
 	"mleczania/internal/auth"
+	"mleczania/internal/companies"
+	"mleczania/internal/companies/addresses"
 	"mleczania/internal/db"
 	"mleczania/internal/db/sqlc"
 	app "mleczania/internal/http"
@@ -47,11 +49,19 @@ func main() {
 	userHandler := users.NewHandler(usersService)
 	usersRouter := users.Router(userHandler, middleware)
 
+	addressesService := addresses.NewService(queries, pool)
+	addressHandler := addresses.NewHandler(addressesService)
+	addressesRouter := addresses.Router(addressHandler, middleware)
+
+	companiesService := companies.NewService(queries, pool)
+	companiesHandler := companies.NewHandler(companiesService)
+	companiesRouter := companies.Router(companiesHandler, middleware, addressesRouter)
+
 	if err := seedAdmin(ctx, usersService, queries); err != nil {
 		logrus.WithError(err).Fatal("failed to seed admin")
 	}
 
-	r := app.Router(authRouter, meRouter, usersRouter)
+	r := app.Router(authRouter, meRouter, usersRouter, companiesRouter)
 	log.Fatal(http.ListenAndServe(":8080", r))
 
 }

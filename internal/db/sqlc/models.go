@@ -96,6 +96,94 @@ func (ns NullAddressType) Value() (driver.Value, error) {
 	return string(ns.AddressType), nil
 }
 
+type CompanyStatus string
+
+const (
+	CompanyStatusACTIVE   CompanyStatus = "ACTIVE"
+	CompanyStatusINACTIVE CompanyStatus = "INACTIVE"
+	CompanyStatusATRISK   CompanyStatus = "AT_RISK"
+)
+
+func (e *CompanyStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CompanyStatus(s)
+	case string:
+		*e = CompanyStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CompanyStatus: %T", src)
+	}
+	return nil
+}
+
+type NullCompanyStatus struct {
+	CompanyStatus CompanyStatus
+	Valid         bool // Valid is true if CompanyStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCompanyStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.CompanyStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CompanyStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCompanyStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CompanyStatus), nil
+}
+
+type OrderStatus string
+
+const (
+	OrderStatusNEW           OrderStatus = "NEW"
+	OrderStatusINVOICED      OrderStatus = "INVOICED"
+	OrderStatusINPREPARATION OrderStatus = "IN_PREPARATION"
+	OrderStatusCANCELLED     OrderStatus = "CANCELLED"
+	OrderStatusSHIPPED       OrderStatus = "SHIPPED"
+)
+
+func (e *OrderStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OrderStatus(s)
+	case string:
+		*e = OrderStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OrderStatus: %T", src)
+	}
+	return nil
+}
+
+type NullOrderStatus struct {
+	OrderStatus OrderStatus
+	Valid       bool // Valid is true if OrderStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOrderStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.OrderStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OrderStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOrderStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OrderStatus), nil
+}
+
 type Role string
 
 const (
@@ -211,6 +299,15 @@ type Employee struct {
 	Position  string
 	IsActive  bool
 	HireDate  pgtype.Timestamp
+}
+
+type Order struct {
+	ID          int32
+	OrderNumber string
+	CustomerID  int32
+	OrderDate   pgtype.Timestamptz
+	Status      OrderStatus
+	TotalAmount pgtype.Numeric
 }
 
 type RefreshToken struct {

@@ -7,6 +7,8 @@ package sqlc
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createCompanyAddress = `-- name: CreateCompanyAddress :one
@@ -32,6 +34,85 @@ func (q *Queries) CreateCompanyAddress(ctx context.Context, arg CreateCompanyAdd
 		arg.PostalCode,
 		arg.Country,
 		arg.Type,
+	)
+	var i CompanyAddress
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerCompanyID,
+		&i.AddressLine,
+		&i.City,
+		&i.PostalCode,
+		&i.Country,
+		&i.Type,
+	)
+	return i, err
+}
+
+const listCompanyAddresses = `-- name: ListCompanyAddresses :many
+SELECT id, customer_company_id, address_line, city, postal_code, country, type
+FROM company_address
+WHERE customer_company_id = $1
+`
+
+func (q *Queries) ListCompanyAddresses(ctx context.Context, customerCompanyID int32) ([]CompanyAddress, error) {
+	rows, err := q.db.Query(ctx, listCompanyAddresses, customerCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CompanyAddress
+	for rows.Next() {
+		var i CompanyAddress
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerCompanyID,
+			&i.AddressLine,
+			&i.City,
+			&i.PostalCode,
+			&i.Country,
+			&i.Type,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateCompanyAddress = `-- name: UpdateCompanyAddress :one
+UPDATE company_address
+SET address_line = COALESCE($1, address_line),
+    city         = COALESCE($2, city),
+    postal_code  = COALESCE($3, postal_code),
+    country      = COALESCE($4, country),
+    type         = COALESCE($5, type)
+WHERE id = $6
+  AND customer_company_id = $7
+RETURNING id, customer_company_id, address_line, city, postal_code, country, type
+`
+
+type UpdateCompanyAddressParams struct {
+	AddressLine       pgtype.Text
+	City              pgtype.Text
+	PostalCode        pgtype.Text
+	Country           pgtype.Text
+	Type              NullAddressType
+	ID                int32
+	CustomerCompanyID int32
+}
+
+func (q *Queries) UpdateCompanyAddress(ctx context.Context, arg UpdateCompanyAddressParams) (CompanyAddress, error) {
+	row := q.db.QueryRow(ctx, updateCompanyAddress,
+		arg.AddressLine,
+		arg.City,
+		arg.PostalCode,
+		arg.Country,
+		arg.Type,
+		arg.ID,
+		arg.CustomerCompanyID,
 	)
 	var i CompanyAddress
 	err := row.Scan(

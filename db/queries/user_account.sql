@@ -69,3 +69,8 @@ SET email               = coalesce(sqlc.narg(email), email),
         END
 WHERE id = sqlc.arg(id)
 RETURNING *;
+
+-- name: GetCompanyIdForUserId :one
+SELECT customer_company_id
+FROM user_account
+WHERE user_account.id = $1;

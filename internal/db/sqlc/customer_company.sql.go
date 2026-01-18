@@ -11,6 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const activateCompany = `-- name: ActivateCompany :one
+UPDATE customer_company
+SET is_active = true
+WHERE id = $1
+RETURNING id, name, tax_id, main_email, phone, is_active, at_risk, created_at
+`
+
+func (q *Queries) ActivateCompany(ctx context.Context, id int32) (CustomerCompany, error) {
+	row := q.db.QueryRow(ctx, activateCompany, id)
+	var i CustomerCompany
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.TaxID,
+		&i.MainEmail,
+		&i.Phone,
+		&i.IsActive,
+		&i.AtRisk,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createCustomerCompany = `-- name: CreateCustomerCompany :one
 INSERT INTO customer_company (name, tax_id, main_email, phone)
 VALUES ($1, $2, $3, $4)
@@ -45,6 +68,29 @@ func (q *Queries) CreateCustomerCompany(ctx context.Context, arg CreateCustomerC
 	return i, err
 }
 
+const deactivateCompany = `-- name: DeactivateCompany :one
+UPDATE customer_company
+SET is_active = false
+WHERE id = $1
+RETURNING id, name, tax_id, main_email, phone, is_active, at_risk, created_at
+`
+
+func (q *Queries) DeactivateCompany(ctx context.Context, id int32) (CustomerCompany, error) {
+	row := q.db.QueryRow(ctx, deactivateCompany, id)
+	var i CustomerCompany
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.TaxID,
+		&i.MainEmail,
+		&i.Phone,
+		&i.IsActive,
+		&i.AtRisk,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCustomerCompanyById = `-- name: GetCustomerCompanyById :one
 SELECT id, name, tax_id, main_email, phone, is_active, at_risk, created_at
 FROM customer_company
@@ -53,6 +99,46 @@ WHERE id = $1
 
 func (q *Queries) GetCustomerCompanyById(ctx context.Context, id int32) (CustomerCompany, error) {
 	row := q.db.QueryRow(ctx, getCustomerCompanyById, id)
+	var i CustomerCompany
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.TaxID,
+		&i.MainEmail,
+		&i.Phone,
+		&i.IsActive,
+		&i.AtRisk,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateCompany = `-- name: UpdateCompany :one
+UPDATE customer_company
+SET name       = coalesce($1, name),
+    tax_id     = coalesce($2, tax_id),
+    main_email = coalesce($3, main_email),
+    phone      = coalesce($4, phone)
+WHERE id = $5
+RETURNING id, name, tax_id, main_email, phone, is_active, at_risk, created_at
+`
+
+type UpdateCompanyParams struct {
+	Name      pgtype.Text
+	TaxID     pgtype.Text
+	MainEmail pgtype.Text
+	Phone     pgtype.Text
+	ID        int32
+}
+
+func (q *Queries) UpdateCompany(ctx context.Context, arg UpdateCompanyParams) (CustomerCompany, error) {
+	row := q.db.QueryRow(ctx, updateCompany,
+		arg.Name,
+		arg.TaxID,
+		arg.MainEmail,
+		arg.Phone,
+		arg.ID,
+	)
 	var i CustomerCompany
 	err := row.Scan(
 		&i.ID,

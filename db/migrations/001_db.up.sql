@@ -8,6 +8,10 @@ CREATE TYPE address_type AS ENUM ('BILLING', 'SHIPPING');
 
 CREATE TYPE user_status AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE');
 
+CREATE TYPE company_status AS ENUM ('ACTIVE', 'INACTIVE', 'AT_RISK');
+
+CREATE TYPE order_status AS ENUM ('NEW', 'INVOICED', 'IN_PREPARATION', 'CANCELLED', 'SHIPPED');
+
 CREATE TABLE employee
 (
     id         INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -67,4 +71,14 @@ CREATE TABLE refresh_token
     expires_at TIMESTAMPTZ NOT NULL,
     revoked    BOOLEAN     NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE orders
+(
+    id           INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    order_number VARCHAR(50)    NOT NULL,
+    customer_id  INT            NOT NULL REFERENCES customer_company (id),
+    order_date   TIMESTAMPTZ    NOT NULL,
+    status       order_status   NOT NULL,
+    total_amount NUMERIC(18, 2) NOT NULL
 );

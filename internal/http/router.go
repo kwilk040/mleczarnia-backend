@@ -10,7 +10,7 @@ import (
 
 const timeout = 1 * time.Minute
 
-func Router(authRouter http.Handler, meRouter http.Handler, usersRouter http.Handler) *chi.Mux {
+func Router(authRouter http.Handler, meRouter http.Handler, usersRouter http.Handler, companiesRouter http.Handler) *chi.Mux {
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
@@ -23,6 +23,7 @@ func Router(authRouter http.Handler, meRouter http.Handler, usersRouter http.Han
 		router.Mount("/auth", authRouter)
 		router.Mount("/me", meRouter)
 		router.Mount("/users", usersRouter)
+		router.Mount("/companies", companiesRouter)
 
 		router.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
