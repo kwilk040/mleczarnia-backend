@@ -1,7 +1,7 @@
 package companies
 
 import (
-	"mleczania/internal/db/sqlc"
+	"mleczarnia/internal/db/sqlc"
 	"time"
 
 	"github.com/shopspring/decimal"

@@ -1,8 +1,8 @@
 package users
 
 import (
-	"mleczania/internal/db/sqlc"
-	app "mleczania/internal/http"
+	"mleczarnia/internal/db/sqlc"
+	app "mleczarnia/internal/http"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"

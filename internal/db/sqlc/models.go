@@ -310,6 +310,15 @@ type Order struct {
 	TotalAmount pgtype.Numeric
 }
 
+type Product struct {
+	ID           int32
+	Name         string
+	Category     string
+	Unit         string
+	DefaultPrice pgtype.Numeric
+	IsActive     bool
+}
+
 type RefreshToken struct {
 	ID        pgtype.UUID
 	UserID    int32

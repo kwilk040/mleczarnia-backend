@@ -2,11 +2,11 @@ package me
 
 import (
 	"errors"
-	"mleczania/internal/crypto"
-	app "mleczania/internal/http"
-	"mleczania/internal/httputil"
-	"mleczania/internal/jwt"
-	"mleczania/internal/users"
+	"mleczarnia/internal/crypto"
+	app "mleczarnia/internal/http"
+	"mleczarnia/internal/httputil"
+	"mleczarnia/internal/jwt"
+	"mleczarnia/internal/users"
 	"net/http"
 
 	"github.com/sirupsen/logrus"

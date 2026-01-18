@@ -1,7 +1,7 @@
 package users
 
 import (
-	"mleczania/internal/db/sqlc"
+	"mleczarnia/internal/db/sqlc"
 	"time"
 )
 

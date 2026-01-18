@@ -1,7 +1,7 @@
 package me
 
 import (
-	app "mleczania/internal/http"
+	app "mleczarnia/internal/http"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"

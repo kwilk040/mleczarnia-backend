@@ -2,8 +2,8 @@ package http
 
 import (
 	"context"
-	"mleczania/internal/db/sqlc"
-	"mleczania/internal/jwt"
+	"mleczarnia/internal/db/sqlc"
+	"mleczarnia/internal/jwt"
 	"net/http"
 	"strconv"
 	"strings"

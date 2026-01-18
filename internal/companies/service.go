@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"mleczania/internal/db"
-	"mleczania/internal/db/sqlc"
+	"mleczarnia/internal/db"
+	"mleczarnia/internal/db/sqlc"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"

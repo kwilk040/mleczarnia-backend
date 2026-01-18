@@ -3,7 +3,7 @@ package jwt
 import (
 	"errors"
 	"fmt"
-	"mleczania/internal/db/sqlc"
+	"mleczarnia/internal/db/sqlc"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"

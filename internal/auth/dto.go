@@ -1,6 +1,6 @@
 package auth
 
-import "mleczania/internal/db/sqlc"
+import "mleczarnia/internal/db/sqlc"
 
 type TokenResponse struct {
 	AccessToken  string `json:"accessToken"`

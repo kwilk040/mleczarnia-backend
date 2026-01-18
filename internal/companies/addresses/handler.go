@@ -2,8 +2,8 @@ package addresses
 
 import (
 	"errors"
-	"mleczania/internal/companies"
-	"mleczania/internal/httputil"
+	"mleczarnia/internal/companies"
+	"mleczarnia/internal/httputil"
 	"net/http"
 	"strconv"
 

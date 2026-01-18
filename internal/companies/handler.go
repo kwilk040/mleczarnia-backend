@@ -2,7 +2,7 @@ package companies
 
 import (
 	"errors"
-	"mleczania/internal/httputil"
+	"mleczarnia/internal/httputil"
 	"net/http"
 	"strconv"
 

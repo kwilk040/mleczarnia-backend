@@ -3,7 +3,7 @@ package addresses
 import (
 	"context"
 	"errors"
-	"mleczania/internal/db/sqlc"
+	"mleczarnia/internal/db/sqlc"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"

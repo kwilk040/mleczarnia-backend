@@ -1,6 +1,6 @@
 package addresses
 
-import "mleczania/internal/db/sqlc"
+import "mleczarnia/internal/db/sqlc"
 
 type AddressResponse struct {
 	Id         int32            `json:"id"`

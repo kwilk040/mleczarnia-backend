@@ -1,4 +1,4 @@
-module mleczania
+module mleczarnia
 
 go 1.25
 
