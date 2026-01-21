@@ -67,3 +67,16 @@ func ConvertToText(data *string) pgtype.Text {
 		}
 	}
 }
+
+func ConvertToInt4(data *int32) pgtype.Int4 {
+	if data != nil {
+		return pgtype.Int4{
+			Int32: *data,
+			Valid: true,
+		}
+	} else {
+		return pgtype.Int4{
+			Valid: false,
+		}
+	}
+}

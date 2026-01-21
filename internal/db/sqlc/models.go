@@ -139,6 +139,51 @@ func (ns NullCompanyStatus) Value() (driver.Value, error) {
 	return string(ns.CompanyStatus), nil
 }
 
+type MovementType string
+
+const (
+	MovementTypeADJUSTMENT MovementType = "ADJUSTMENT"
+	MovementTypeLOSS       MovementType = "LOSS"
+	MovementTypeRETURN     MovementType = "RETURN"
+	MovementTypeDISPATCH   MovementType = "DISPATCH"
+	MovementTypeINBOUND    MovementType = "INBOUND"
+)
+
+func (e *MovementType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = MovementType(s)
+	case string:
+		*e = MovementType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for MovementType: %T", src)
+	}
+	return nil
+}
+
+type NullMovementType struct {
+	MovementType MovementType
+	Valid        bool // Valid is true if MovementType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullMovementType) Scan(value interface{}) error {
+	if value == nil {
+		ns.MovementType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.MovementType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullMovementType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.MovementType), nil
+}
+
 type OrderStatus string
 
 const (
@@ -326,6 +371,24 @@ type RefreshToken struct {
 	ExpiresAt pgtype.Timestamptz
 	Revoked   bool
 	CreatedAt pgtype.Timestamptz
+}
+
+type Stock struct {
+	ID          int32
+	ProductID   int32
+	Quantity    int32
+	MinQuantity int32
+}
+
+type StockMovement struct {
+	ID             int32
+	ProductID      int32
+	QuantityChange int32
+	MovementType   MovementType
+	RelatedOrderID pgtype.Int4
+	Reason         pgtype.Text
+	CreatedAt      pgtype.Timestamptz
+	EmployeeID     pgtype.Int4
 }
 
 type UserAccount struct {

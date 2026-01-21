@@ -12,6 +12,8 @@ CREATE TYPE company_status AS ENUM ('ACTIVE', 'INACTIVE', 'AT_RISK');
 
 CREATE TYPE order_status AS ENUM ('NEW', 'INVOICED', 'IN_PREPARATION', 'CANCELLED', 'SHIPPED');
 
+CREATE TYPE movement_type AS ENUM ('ADJUSTMENT', 'LOSS', 'RETURN', 'DISPATCH', 'INBOUND');
+
 CREATE TABLE employee
 (
     id         INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -82,3 +84,34 @@ CREATE TABLE orders
     status       order_status   NOT NULL,
     total_amount NUMERIC(18, 2) NOT NULL
 );
+
+CREATE TABLE product
+(
+    id            INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name          VARCHAR(200)   NOT NULL,
+    category      VARCHAR(100)   NOT NULL,
+    unit          VARCHAR(50)    NOT NULL,
+    default_price NUMERIC(18, 2) NOT NULL,
+    is_active     BOOLEAN        NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE stock
+(
+    id           INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    product_id   INT NOT NULL REFERENCES product (id),
+    quantity     INT NOT NULL,
+    min_quantity INT NOT NULL
+);
+
+CREATE TABLE stock_movement
+(
+    id               INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    product_id       INT           NOT NULL REFERENCES product (id),
+    quantity_change  INT           NOT NULL,
+    movement_type    movement_type NOT NULL,
+    related_order_id INT REFERENCES orders (id),
+    reason           VARCHAR(255),
+    created_at       TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    employee_id      INT REFERENCES employee (id)
+
+)
