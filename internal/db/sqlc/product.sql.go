@@ -96,7 +96,7 @@ FROM product p
          LEFT JOIN stock s ON p.id = s.product_id
          LEFT JOIN stock_movement m ON p.id = m.product_id
 WHERE p.id = $1
-GROUP BY p.id, p.name
+GROUP BY p.id, p.name, s.quantity, s.min_quantity
 ORDER BY p.name
 `
 
@@ -143,7 +143,7 @@ SELECT p.id, p.name, p.category, p.unit, p.default_price, p.is_active,
 FROM product p
          LEFT JOIN stock s ON p.id = s.product_id
          LEFT JOIN stock_movement m ON p.id = m.product_id
-GROUP BY p.id, p.name
+GROUP BY p.id, p.name, s.quantity, s.min_quantity
 ORDER BY p.name
 `
 

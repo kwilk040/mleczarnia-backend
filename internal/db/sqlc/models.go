@@ -139,6 +139,49 @@ func (ns NullCompanyStatus) Value() (driver.Value, error) {
 	return string(ns.CompanyStatus), nil
 }
 
+type InvoiceStatus string
+
+const (
+	InvoiceStatusPAID    InvoiceStatus = "PAID"
+	InvoiceStatusUNPAID  InvoiceStatus = "UNPAID"
+	InvoiceStatusOVERDUE InvoiceStatus = "OVERDUE"
+)
+
+func (e *InvoiceStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InvoiceStatus(s)
+	case string:
+		*e = InvoiceStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InvoiceStatus: %T", src)
+	}
+	return nil
+}
+
+type NullInvoiceStatus struct {
+	InvoiceStatus InvoiceStatus
+	Valid         bool // Valid is true if InvoiceStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInvoiceStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.InvoiceStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InvoiceStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInvoiceStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InvoiceStatus), nil
+}
+
 type MovementType string
 
 const (
@@ -334,7 +377,7 @@ type CustomerCompany struct {
 	Phone     pgtype.Text
 	IsActive  bool
 	AtRisk    bool
-	CreatedAt pgtype.Timestamp
+	CreatedAt pgtype.Timestamptz
 }
 
 type Employee struct {
@@ -343,7 +386,17 @@ type Employee struct {
 	LastName  string
 	Position  string
 	IsActive  bool
-	HireDate  pgtype.Timestamp
+	HireDate  pgtype.Timestamptz
+}
+
+type Invoice struct {
+	ID            int32
+	OrderID       int32
+	InvoiceNumber string
+	IssueDate     pgtype.Timestamptz
+	DueDate       pgtype.Timestamptz
+	TotalAmount   pgtype.Numeric
+	Status        InvoiceStatus
 }
 
 type Order struct {
@@ -353,6 +406,15 @@ type Order struct {
 	OrderDate   pgtype.Timestamptz
 	Status      OrderStatus
 	TotalAmount pgtype.Numeric
+}
+
+type OrderItem struct {
+	ID        int32
+	OrderID   int32
+	ProductID int32
+	Quantity  int32
+	UnitPrice pgtype.Numeric
+	LineTotal pgtype.Numeric
 }
 
 type Product struct {

@@ -9,9 +9,12 @@ import (
 	"mleczarnia/internal/companies/addresses"
 	"mleczarnia/internal/db"
 	"mleczarnia/internal/db/sqlc"
+	"mleczarnia/internal/employees"
 	app "mleczarnia/internal/http"
+	"mleczarnia/internal/invoices"
 	"mleczarnia/internal/jwt"
 	"mleczarnia/internal/me"
+	"mleczarnia/internal/orders"
 	"mleczarnia/internal/products"
 	"mleczarnia/internal/users"
 	"mleczarnia/internal/warehouse"
@@ -71,11 +74,23 @@ func main() {
 	warehouseHandler := warehouse.NewHandler(warehouseService)
 	warehouseRouter := warehouse.Router(warehouseHandler, middleware, movementsRouter)
 
+	invoicesService := invoices.NewService(queries, pool)
+	invoicesHandler := invoices.NewHandler(invoicesService)
+	invoicesRouter := invoices.Router(invoicesHandler, middleware)
+
+	ordersService := orders.NewService(queries, pool)
+	ordersHandler := orders.NewHandler(ordersService)
+	ordersRouter := orders.Router(ordersHandler, invoicesHandler, middleware)
+
+	employeesService := employees.NewService(queries)
+	employeesHandler := employees.NewHandler(employeesService)
+	employeesRouter := employees.Router(employeesHandler, middleware)
+
 	if err := seedAdmin(ctx, usersService, queries); err != nil {
 		logrus.WithError(err).Fatal("failed to seed admin")
 	}
 
-	r := app.Router(authRouter, meRouter, usersRouter, companiesRouter, productsRouter, warehouseRouter)
+	r := app.Router(authRouter, meRouter, usersRouter, companiesRouter, productsRouter, warehouseRouter, ordersRouter, invoicesRouter, employeesRouter)
 	log.Fatal(http.ListenAndServe(":8080", r))
 
 }

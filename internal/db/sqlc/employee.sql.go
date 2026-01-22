@@ -21,7 +21,7 @@ type CreateEmployeeParams struct {
 	FirstName string
 	LastName  string
 	Position  string
-	HireDate  pgtype.Timestamp
+	HireDate  pgtype.Timestamptz
 }
 
 func (q *Queries) CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error) {
@@ -51,6 +51,80 @@ WHERE id = $1
 
 func (q *Queries) GetEmployeeById(ctx context.Context, id int32) (Employee, error) {
 	row := q.db.QueryRow(ctx, getEmployeeById, id)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Position,
+		&i.IsActive,
+		&i.HireDate,
+	)
+	return i, err
+}
+
+const listEmployees = `-- name: ListEmployees :many
+SELECT id, first_name, last_name, position, is_active, hire_date
+FROM employee
+ORDER BY last_name, first_name
+`
+
+func (q *Queries) ListEmployees(ctx context.Context) ([]Employee, error) {
+	rows, err := q.db.Query(ctx, listEmployees)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Employee
+	for rows.Next() {
+		var i Employee
+		if err := rows.Scan(
+			&i.ID,
+			&i.FirstName,
+			&i.LastName,
+			&i.Position,
+			&i.IsActive,
+			&i.HireDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateEmployee = `-- name: UpdateEmployee :one
+UPDATE employee
+SET first_name = coalesce($1, first_name),
+    last_name  = coalesce($2, last_name),
+    position   = coalesce($3, position),
+    is_active  = coalesce($4, is_active),
+    hire_date  = coalesce($5, hire_date)
+WHERE id = $6
+RETURNING id, first_name, last_name, position, is_active, hire_date
+`
+
+type UpdateEmployeeParams struct {
+	FirstName pgtype.Text
+	LastName  pgtype.Text
+	Position  pgtype.Text
+	IsActive  pgtype.Bool
+	HireDate  pgtype.Timestamptz
+	ID        int32
+}
+
+func (q *Queries) UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) (Employee, error) {
+	row := q.db.QueryRow(ctx, updateEmployee,
+		arg.FirstName,
+		arg.LastName,
+		arg.Position,
+		arg.IsActive,
+		arg.HireDate,
+		arg.ID,
+	)
 	var i Employee
 	err := row.Scan(
 		&i.ID,

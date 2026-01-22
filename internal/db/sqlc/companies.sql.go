@@ -39,7 +39,7 @@ type GetCompanyDetailsByIdRow struct {
 	MainEmail        string
 	Phone            pgtype.Text
 	Status           CompanyStatus
-	CreatedAt        pgtype.Timestamp
+	CreatedAt        pgtype.Timestamptz
 	OrderCount       int64
 	TotalOrdersValue string
 	CompletedOrders  int64
@@ -88,7 +88,7 @@ type ListCompaniesRow struct {
 	MainEmail  string
 	Phone      pgtype.Text
 	Status     CompanyStatus
-	CreatedAt  pgtype.Timestamp
+	CreatedAt  pgtype.Timestamptz
 	OrderCount int64
 }
 

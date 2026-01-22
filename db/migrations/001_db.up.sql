@@ -14,6 +14,8 @@ CREATE TYPE order_status AS ENUM ('NEW', 'INVOICED', 'IN_PREPARATION', 'CANCELLE
 
 CREATE TYPE movement_type AS ENUM ('ADJUSTMENT', 'LOSS', 'RETURN', 'DISPATCH', 'INBOUND');
 
+CREATE TYPE invoice_status AS ENUM ('PAID', 'UNPAID', 'OVERDUE');
+
 CREATE TABLE employee
 (
     id         INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -21,7 +23,7 @@ CREATE TABLE employee
     last_name  VARCHAR(100) NOT NULL,
     position   VARCHAR(100) NOT NULL,
     is_active  BOOLEAN      NOT NULL DEFAULT TRUE,
-    hire_date  TIMESTAMP    NOT NULL
+    hire_date  TIMESTAMPTZ  NOT NULL
 );
 
 CREATE TABLE customer_company
@@ -33,7 +35,7 @@ CREATE TABLE customer_company
     phone      VARCHAR(50),
     is_active  BOOLEAN      NOT NULL DEFAULT TRUE,
     at_risk    BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
 CREATE TABLE company_address
@@ -80,9 +82,9 @@ CREATE TABLE orders
     id           INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     order_number VARCHAR(50)    NOT NULL,
     customer_id  INT            NOT NULL REFERENCES customer_company (id),
-    order_date   TIMESTAMPTZ    NOT NULL,
-    status       order_status   NOT NULL,
-    total_amount NUMERIC(18, 2) NOT NULL
+    order_date   TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    status       order_status   NOT NULL DEFAULT 'NEW',
+    total_amount NUMERIC(18, 2) NOT NULL DEFAULT 0.00
 );
 
 CREATE TABLE product
@@ -114,4 +116,53 @@ CREATE TABLE stock_movement
     created_at       TIMESTAMPTZ   NOT NULL DEFAULT now(),
     employee_id      INT REFERENCES employee (id)
 
-)
+);
+
+CREATE TABLE order_item
+(
+    id         INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    order_id   INT            NOT NULL REFERENCES orders (id),
+    product_id INT            NOT NULL REFERENCES product (id),
+    quantity   INT            NOT NULL,
+    unit_price NUMERIC(18, 2) NOT NULL,
+    line_total NUMERIC(18, 2) NOT NULL
+);
+
+CREATE TABLE invoice
+(
+    id             INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    order_id       INT            NOT NULL REFERENCES orders (id),
+    invoice_number VARCHAR(50)    NOT NULL,
+    issue_date     TIMESTAMPTZ    NOT NULL,
+    due_date       TIMESTAMPTZ    NOT NULL,
+    total_amount   NUMERIC(18, 2) NOT NULL,
+    status         invoice_status NOT NULL
+);
+
+CREATE FUNCTION set_order_number() RETURNS trigger AS
+$$
+BEGIN
+    NEW.order_number := 'ZAM/' || extract(YEAR FROM NEW.order_date)::text || '/' || lpad(NEW.id::text, 4, '0');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER order_number_trigger
+    BEFORE INSERT
+    ON orders
+    FOR EACH ROW
+EXECUTE FUNCTION set_order_number();
+
+CREATE FUNCTION set_invoice_number() RETURNS trigger AS
+$$
+BEGIN
+    NEW.invoice_number := 'FAK/' || extract(YEAR FROM NEW.issue_date)::text || '' || lpad(NEW.id::text, 4, '0');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER invoice_number_trigger
+    BEFORE INSERT
+    ON invoice
+    FOR EACH ROW
+EXECUTE FUNCTION set_invoice_number();

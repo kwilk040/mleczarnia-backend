@@ -3,10 +3,12 @@ package db
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopspring/decimal"
 )
 
 type TxFunc func(pgx.Tx) error
@@ -61,10 +63,10 @@ func ConvertToText(data *string) pgtype.Text {
 			String: *data,
 			Valid:  true,
 		}
-	} else {
-		return pgtype.Text{
-			Valid: false,
-		}
+	}
+
+	return pgtype.Text{
+		Valid: false,
 	}
 }
 
@@ -74,9 +76,41 @@ func ConvertToInt4(data *int32) pgtype.Int4 {
 			Int32: *data,
 			Valid: true,
 		}
-	} else {
-		return pgtype.Int4{
-			Valid: false,
+	}
+
+	return pgtype.Int4{
+		Valid: false,
+	}
+}
+
+func ConvertToBool(data *bool) pgtype.Bool {
+	if data != nil {
+		return pgtype.Bool{
+			Bool:  *data,
+			Valid: true,
 		}
 	}
+
+	return pgtype.Bool{
+		Valid: false,
+	}
+}
+
+func ConvertToTimestamptz(data *time.Time) pgtype.Timestamptz {
+	if data != nil {
+		return pgtype.Timestamptz{
+			Time:  *data,
+			Valid: true,
+		}
+	}
+
+	return pgtype.Timestamptz{
+		Valid: false,
+	}
+}
+
+func DecimalToNumeric(data decimal.Decimal) (pgtype.Numeric, error) {
+	n := pgtype.Numeric{}
+	err := n.Scan(data.String())
+	return n, err
 }

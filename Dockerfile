@@ -21,6 +21,7 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /app/mleczarnia .
+COPY --from=builder /app/internal/assets/fonts ./internal/assets/fonts
 
 EXPOSE 8080
 
