@@ -21,7 +21,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./db/migrations:/migrations
+      - ./backend/db/migrations:/migrations
     env_file: ".env"
     entrypoint: [ "migrate" ]
     command: [
@@ -31,7 +31,7 @@ services:
     ]
 
   backend:
-    build: .
+    build: ./backend
     container_name: mleczarnia-backend
     restart: always
     depends_on:
@@ -42,6 +42,21 @@ services:
     env_file: ".env"
     ports:
       - "8081:8080"
+
+  frontend:
+    build: ./frontend/dairy-erp
+    container_name: mleczarnia-ui
+    restart: always
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=/api/v1
+      - VITE_API_TARGET=http://backend:8080
+    volumes:
+      - ./frontend/dairy-erp:/app
+      - /app/node_modules
+    depends_on:
+      - backend
 
 volumes:
   pg_data:
