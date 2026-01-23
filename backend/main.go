@@ -20,7 +20,9 @@ import (
 	"mleczarnia/internal/warehouse"
 	"mleczarnia/internal/warehouse/movements"
 	"net/http"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sirupsen/logrus"
 )
 
@@ -90,24 +92,36 @@ func main() {
 		logrus.WithError(err).Fatal("failed to seed admin")
 	}
 
+	if err := seedStaff(ctx, usersService, queries); err != nil {
+		logrus.WithError(err).Fatal("failed to seed staff")
+	}
+
+	if err := seedWarehouse(ctx, usersService, queries); err != nil {
+		logrus.WithError(err).Fatal("failed to seed warehouse")
+	}
+
+	if err := seedCompany(ctx, usersService, queries); err != nil {
+		logrus.WithError(err).Fatal("failed to seed company")
+	}
+
 	r := app.Router(authRouter, meRouter, usersRouter, companiesRouter, productsRouter, warehouseRouter, ordersRouter, invoicesRouter, employeesRouter)
 	log.Fatal(http.ListenAndServe(":8080", r))
 
 }
 
 func seedAdmin(ctx context.Context, service *users.Service, queries *sqlc.Queries) error {
-	const adminEmail = "admin@mleczarnia.dev"
-	const adminPassword = "admin"
+	email := "admin@mleczarnia.dev"
+	password := "admin"
 
-	_, err := queries.GetUserByEmail(ctx, adminEmail)
+	_, err := queries.GetUserByEmail(ctx, email)
 	if err == nil {
-		logrus.Info("Admin user already exists")
+		logrus.Info("User already exists")
 		return nil
 	}
 
 	if err := service.CreateUser(ctx, users.CreateUserRequest{
-		Email:       adminEmail,
-		Password:    adminPassword,
+		Email:       email,
+		Password:    password,
 		Role:        sqlc.RoleADMIN,
 		AccountType: sqlc.AccountTypeUNSPECIFIED,
 	}); err != nil {
@@ -115,9 +129,123 @@ func seedAdmin(ctx context.Context, service *users.Service, queries *sqlc.Querie
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"email":    adminEmail,
-		"password": adminPassword,
+		"email":    email,
+		"password": password,
 	}).Info("Admin user created")
+
+	return nil
+}
+
+func seedStaff(ctx context.Context, service *users.Service, queries *sqlc.Queries) error {
+	email := "staff@mleczarnia.dev"
+	password := "staff123"
+
+	_, err := queries.GetUserByEmail(ctx, email)
+	if err == nil {
+		logrus.Info("User already exists")
+		return nil
+	}
+
+	staffEmployee, err := queries.CreateEmployee(ctx, sqlc.CreateEmployeeParams{
+		FirstName: "Anna",
+		LastName:  "Nowak",
+		Position:  "Księgowa",
+		HireDate:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := service.CreateUser(ctx, users.CreateUserRequest{
+		Email:       email,
+		Password:    password,
+		Role:        sqlc.RoleSTAFF,
+		AccountType: sqlc.AccountTypeEMPLOYEE,
+		AssignTo:    staffEmployee.ID,
+	}); err != nil {
+		return err
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"email":    email,
+		"password": password,
+	}).Info("Staff user created")
+
+	return nil
+}
+
+func seedWarehouse(ctx context.Context, service *users.Service, queries *sqlc.Queries) error {
+	email := "warehouse@mleczarnia.dev"
+	password := "warehouse123"
+
+	_, err := queries.GetUserByEmail(ctx, email)
+	if err == nil {
+		logrus.Info("User already exists")
+		return nil
+	}
+
+	warehouseEmployee, err := queries.CreateEmployee(ctx, sqlc.CreateEmployeeParams{
+		FirstName: "Piotr",
+		LastName:  "Wiśniewski",
+		Position:  "Magazynier",
+		HireDate:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := service.CreateUser(ctx, users.CreateUserRequest{
+		Email:       email,
+		Password:    password,
+		Role:        sqlc.RoleWAREHOUSE,
+		AccountType: sqlc.AccountTypeEMPLOYEE,
+		AssignTo:    warehouseEmployee.ID,
+	}); err != nil {
+		return err
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"email":    email,
+		"password": password,
+	}).Info("Warehouse user created")
+
+	return nil
+}
+
+func seedCompany(ctx context.Context, service *users.Service, queries *sqlc.Queries) error {
+	email := "client@mleczarnia.dev"
+	password := "client123"
+
+	_, err := queries.GetUserByEmail(ctx, email)
+	if err == nil {
+		logrus.Info("User already exists")
+		return nil
+	}
+
+	company, err := queries.CreateCustomerCompany(ctx, sqlc.CreateCustomerCompanyParams{
+		Name:      "Delikatesy Świeżość Sp. z o.o.",
+		TaxID:     "1234567890",
+		MainEmail: "kontakt@swiezosc.pl",
+		Phone:     pgtype.Text{String: "48123456789", Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := service.CreateUser(ctx, users.CreateUserRequest{
+		Email:       email,
+		Password:    password,
+		Role:        sqlc.RoleCLIENT,
+		AccountType: sqlc.AccountTypeCUSTOMERCOMPANY,
+		AssignTo:    company.ID,
+	}); err != nil {
+		return err
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"email":    email,
+		"password": password,
+	}).Info("Client user created")
 
 	return nil
 }
